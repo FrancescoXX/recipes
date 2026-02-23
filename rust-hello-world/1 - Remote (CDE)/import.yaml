@@ -1,36 +1,27 @@
-# Zerops project import for the Rust Hello World Remote (CDE) environment.
-# This configuration provisions two application containers and a database,
-# designed for a developer working via SSH or a cloud IDE (VS Code Remote, Zed, etc.)
-# mounted over SSHFS.
-#
-# 'appdev' is the live workspace — the developer mounts it as a remote filesystem,
-# edits code locally in their IDE, and runs 'cargo run' (or 'cargo watch') via SSH.
-# 'appstage' mirrors the production pipeline so the developer can validate the full
-# build-and-deploy process without touching a real production environment.
-
 project:
   name: rust-hello-world-remote-cde
 
 services:
-  # Developer workspace — full source tree with the Rust toolchain available inside.
-  # Connect via SSH or mount with SSHFS: sftp://appdev/var/www
-  #
-  # minRam: 0.5 GB is the minimum for 'cargo run' on this project's dependency set.
-  # Compiling from cold (no build cache) or running 'cargo check' on a large codebase
-  # can spike RAM to 2–4 GB. Uncomment and raise maxRam if the compiler is OOM-killed:
-  #   verticalAutoscaling:
-  #     minRam: 4
-  #     maxRam: 8
+  # Development service — runs the 'dev' zerops.yaml setup.
+  # The build container fetches dependencies and deploys the full source tree,
+  # so you can SSH in and invoke 'cargo run' without any setup step. Your IDE
+  # (VS Code Remote, JetBrains Gateway) mounts the container filesystem via SSHFS,
+  # giving you a fully prepared Rust workspace with all crates pre-fetched.
   - hostname: appdev
     type: rust@stable
     zeropsSetup: dev
     buildFromGit: https://github.com/zerops-recipe-apps/rust-hello-world-app
     enableSubdomainAccess: true
     verticalAutoscaling:
+      # 0.5 GB minimum for interactive development — 'cargo run' in debug mode
+      # compiles with full debug symbols, which peaks higher than the release binary.
+      # For a comfortable experience with multiple SSH sessions, consider bumping to:
+      # minRam: 4
       minRam: 0.5
 
-  # Staging container for production pipeline validation — receives 'zcli push --setup=prod'
-  # to test the full compile-and-deploy cycle before changes reach production.
+  # Staging service — runs the 'prod' zerops.yaml setup.
+  # Use this to validate that the full build pipeline (cargo build --release --locked)
+  # works correctly before promoting to production environments.
   - hostname: appstage
     type: rust@stable
     zeropsSetup: prod
@@ -38,11 +29,9 @@ services:
     enableSubdomainAccess: true
     verticalAutoscaling:
       minRam: 0.25
-      # Reserve ~30% free RAM for request bursts on the production binary.
-      minFreeRamGB: 0.05
 
   # Deploy PostgreSQL database for app data.
-  # Priority 10 ensures data services start before app containers, preventing
+  # Priority 10 ensures the database starts before app containers, preventing
   # connection errors during deployment. This pattern applies to all data services.
   - hostname: db
     type: postgresql@17

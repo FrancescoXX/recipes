@@ -1,19 +1,15 @@
-# Zerops project import for the Rust Hello World Highly-available Production environment.
-# Enterprise-grade configuration: Serious core package, dedicated CPU cores, HA database
-# with streaming replication, and horizontally scaled app containers.
-
 project:
   name: rust-hello-world-highly-available-production
-  # Serious core provides a dedicated hardware node for the project balancer and internal
-  # routing infrastructure. Lightweight (default) is shared and sufficient for development
-  # or small production; Serious eliminates noisy-neighbor effects for enterprise workloads.
-  # Docs: https://docs.zerops.io/features/infrastructure#project-core-options
+  # Serious core allocates dedicated infrastructure for this project,
+  # eliminating resource contention with other projects on the platform.
+  # Use this for production workloads with SLA requirements.
   corePackage: SERIOUS
 
 services:
-  # Production app — dedicated CPU cores, two minimum containers, generous RAM reserve.
-  # cpuMode: DEDICATED allocates exclusive vCPU cores to this service, preventing other
-  # tenants from affecting response latency during CPU-intensive request handling.
+  # HA production app — dedicated CPU cores ensure consistent latency.
+  # DEDICATED mode reserves vCPUs exclusively for this service (no sharing with
+  # other containers on the same host), which eliminates CPU steal and
+  # jitter caused by noisy neighbours.
   - hostname: app
     type: rust@stable
     zeropsSetup: prod
@@ -22,15 +18,19 @@ services:
     minContainers: 2
     cpuMode: DEDICATED
     verticalAutoscaling:
+      # Higher minRam for HA production — more headroom for concurrent requests
+      # across multiple containers. Rust is memory-efficient but actix-web's
+      # thread-per-core model plus connection buffers add up under load.
       minRam: 0.5
-      # Reserve ~40% free RAM — higher baseline for enterprise traffic patterns
-      # and to absorb connection pool growth during load spikes.
+      # ~50% free RAM reserve at this tier — leaves room for request bursts,
+      # Tokio runtime overhead, and memory fragmentation in long-running processes.
       minFreeRamGB: 0.25
 
-  # Deploy PostgreSQL database with high-availability replication.
-  # mode: HA provisions a primary and at least one replica with automatic failover,
-  # eliminating the database as a single point of failure.
-  # Priority 10 ensures data services start before app containers, preventing
+  # HA PostgreSQL database — data is replicated across multiple nodes.
+  # In NON_HA mode, a database node failure causes downtime while Zerops
+  # restarts it. In HA mode, a replica promotes to primary automatically,
+  # keeping the application connected with no manual intervention.
+  # Priority 10 ensures the database starts before app containers, preventing
   # connection errors during deployment. This pattern applies to all data services.
   - hostname: db
     type: postgresql@17
@@ -38,7 +38,6 @@ services:
     priority: 10
     cpuMode: DEDICATED
     verticalAutoscaling:
+      # HA database requires more RAM: primary + replica both run on the same
+      # vertical autoscaling budget, and the WAL replication stream adds overhead.
       minRam: 1
-      # HA PostgreSQL runs WAL shipping and replication concurrently with query serving —
-      # reserve RAM for replication overhead on top of query workload.
-      minFreeRamGB: 0.5

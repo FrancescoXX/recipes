@@ -1,7 +1,6 @@
-# Rust Hello World - Remote (CDE)
-
 <!-- #ZEROPS_EXTRACT_START:intro# -->
-This is a remote development environment for [Rust Hello World (info + deploy)](https://app.zerops.io/recipes/rust-hello-world?environment=remote-cde) recipe on [Zerops](https://zerops.io).
+# Rust Hello World - Remote (CDE)
+This is a remote cloud development environment for [Rust Hello World (info + deploy)](https://app.zerops.io/recipes/rust-hello-world?environment=remote-cde) recipe on [Zerops](https://zerops.io).
 
-Two application containers and a PostgreSQL database: `appdev` (dev setup) provides a full Rust toolchain workspace accessible via SSH or cloud IDE mounting (VS Code Remote, Zed over SSHFS), while `appstage` (prod setup) allows testing the complete release build pipeline before promoting to production.
+Two services are deployed: `appdev` with full source and pre-fetched crates for SSH and IDE access (VS Code Remote, JetBrains Gateway), and `appstage` with compiled release binaries for build pipeline validation — both connected to a shared PostgreSQL database.
 <!-- #ZEROPS_EXTRACT_END:intro# -->
